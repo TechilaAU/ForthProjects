@@ -180,6 +180,21 @@ def head(title, desc, path, schemas, noindex=False, og_type="website"):
 </head>'''
 
 
+
+def relativise(doc, path):
+    """Rewrite root-relative href/src to relative paths so the site works from a
+    subfolder (GitHub Pages preview) and from the root domain."""
+    import re
+    if path == "/404/":
+        # 404.html is served at any depth, so resolve links from the site root at runtime.
+        base = ('<script>(function(){var m=location.pathname.match(/^\\/ForthProjects\\//i);'
+                'document.write(\'<base href="\'+(m?m[0]:"/")+\'">\');})();</script>')
+        doc = doc.replace("<meta charset=\"utf-8\">", "<meta charset=\"utf-8\">\n" + base, 1)
+        return re.sub(r'(href|src)="/(?!/)', r'\1="', doc)
+    depth = 0 if path == "/" else len(path.strip("/").split("/"))
+    prefix = "../" * depth if depth else "./"
+    return re.sub(r'(href|src)="/(?!/)', lambda m: f'{m.group(1)}="{prefix}', doc)
+
 def page(path, title, desc, main, crumbs=None, schemas=None, noindex=False, priority="0.6",
          og_type="website", body_class=""):
     schemas = list(schemas or [])
@@ -189,6 +204,7 @@ def page(path, title, desc, main, crumbs=None, schemas=None, noindex=False, prio
            f'\n<body class="{body_class}">\n<a class="skip" href="#main">Skip to content</a>\n' +
            nav() + f'\n<main id="main">\n{main}\n</main>\n' + footer() +
            '\n<script src="/assets/js/site.js" defer></script>\n</body>\n</html>\n')
+    doc = relativise(doc, path)
     out = os.path.join(ROOT, path.strip("/"), "index.html") if path != "/" else os.path.join(ROOT, "index.html")
     if path == "/404/":
         out = os.path.join(ROOT, "404.html")
